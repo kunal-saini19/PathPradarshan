@@ -1,0 +1,454 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                         Int      @id @default(autoincrement())
+  name                       String
+  username                   String?  @unique
+  email                      String   @unique
+  walletAddress              String?  @unique
+  passwordHash               String?
+  role                       String
+  tokens                     Int      @default(0)
+  emailVerified              Boolean  @default(false)
+  verificationToken          String?  @unique
+  verificationTokenExpiresAt DateTime?
+  jobsPosted                 Job[]    @relation("ClientJobs")
+  proposals                  Proposal[] @relation("FreelancerProposals")
+  freelancerProfile          FreelancerProfile?
+  clientProfile              ClientProfile?
+  sentMessages               Message[] @relation("MessageSender")
+  receivedMessages           Message[] @relation("MessageReceiver")
+  notifications              Notification[]
+  authoredReviews            Review[] @relation("ReviewAuthor")
+  receivedReviews            Review[] @relation("ReviewTarget")
+  savedJobs                  SavedJob[]
+  savedFreelancers           SavedFreelancer[] @relation("ClientSavedFreelancers")
+  savedByClients             SavedFreelancer[] @relation("FreelancerSavedByClients")
+  hiredJobs                  Job[] @relation("HiredJobs")
+  taskProgress               UserTaskProgress[]
+  taskSubmissions            TaskSubmission[]
+  tokenTransactions          TokenTransaction[]
+  careerProfile              CareerProfile?
+  careerEvidence             CareerEvidence[]
+  careerProgressEvents       CareerProgressEvent[]
+  careerEvidenceReviews     CareerEvidenceReview[] @relation("EvidenceReviewer")
+}
+
+model OnrampPayment {
+  id            Int      @id @default(autoincrement())
+  orderId       String   @unique
+  walletAddress String
+  amount        Int
+  tokens        Int
+  status        String   @default("PENDING")
+  checksum      String
+  txHash        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Job {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String
+  budget      Int
+  applicationTokenCost Int @default(5)
+  status      String    @default("OPEN")
+  clientId    Int
+  hiredFreelancerId Int?
+  client      User      @relation("ClientJobs", fields: [clientId], references: [id])
+  hiredFreelancer User? @relation("HiredJobs", fields: [hiredFreelancerId], references: [id])
+  proposals   Proposal[]
+  reviews     Review[]
+  savedBy     SavedJob[]
+  tokenTransactions TokenTransaction[]
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Proposal {
+  id           Int      @id @default(autoincrement())
+  jobId        Int
+  freelancerId Int
+  coverLetter  String
+  status       String   @default("SUBMITTED")
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  freelancer   User     @relation("FreelancerProposals", fields: [freelancerId], references: [id])
+  messages     Message[]
+  tokenTransactions TokenTransaction[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([jobId, freelancerId])
+}
+
+model FreelancerProfile {
+  id                    Int      @id @default(autoincrement())
+  userId                Int      @unique
+  professionalTitle     String
+  bio                   String
+  skills                String
+  experienceLevel       String
+  hourlyRateUsd         Int
+  country               String
+  city                  String
+  phone                 String?
+  languages             String
+  portfolioUrl          String?
+  githubUrl             String?
+  linkedinUrl           String?
+  education             String?
+  certifications        String?
+  availability          String
+  preferredWorkingHours String?
+  responseTime          String
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ClientProfile {
+  id                      Int      @id @default(autoincrement())
+  userId                  Int      @unique
+  accountType             String
+  displayName             String
+  companyName             String?
+  tagline                 String?
+  about                   String
+  industry                String?
+  companySize             String
+  websiteUrl              String?
+  country                 String
+  city                    String?
+  timezone                String
+  phone                   String?
+  linkedinUrl             String?
+  preferredLanguages      String
+  budgetRange             String
+  projectTypes            String?
+  hiringGoals             String
+  communicationPreference String
+  responseExpectation     String
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  proposalId Int
+  senderId   Int
+  receiverId Int
+  body       String
+  proposal   Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  sender     User     @relation("MessageSender", fields: [senderId], references: [id])
+  receiver   User     @relation("MessageReceiver", fields: [receiverId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String
+  title     String
+  body      String
+  link      String?
+  isRead    Boolean  @default(false)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id           Int      @id @default(autoincrement())
+  jobId         Int
+  authorId      Int
+  targetUserId  Int
+  rating        Int
+  comment       String
+  job           Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  author        User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  targetUser    User     @relation("ReviewTarget", fields: [targetUserId], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@unique([jobId, authorId])
+}
+
+model SavedJob {
+  id        Int      @id @default(autoincrement())
+  userId     Int
+  jobId      Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, jobId])
+}
+
+model SavedFreelancer {
+  id           Int      @id @default(autoincrement())
+  clientId     Int
+  freelancerId Int
+  client       User     @relation("ClientSavedFreelancers", fields: [clientId], references: [id], onDelete: Cascade)
+  freelancer   User     @relation("FreelancerSavedByClients", fields: [freelancerId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@unique([clientId, freelancerId])
+}
+
+model Task {
+  id                 Int      @id @default(autoincrement())
+  title              String
+  description        String
+  difficulty         String   @default("BEGINNER")
+  category           String   @default("GENERAL")
+  rewardTokens       Int
+  timeLimit          Int?
+  starterCode        String?
+  codingChallenge    CodingChallenge?
+  userProgress       UserTaskProgress[]
+  submissions        TaskSubmission[]
+  careerRoadmapItems CareerRoadmapItem[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model CodingChallenge {
+  id           Int      @id @default(autoincrement())
+  taskId       Int      @unique
+  language     String   @default("javascript")
+  testCases    String
+  expectedOutput String
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model UserTaskProgress {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  taskId       Int
+  completed    Boolean  @default(false)
+  completedAt  DateTime?
+  tokensEarned Int      @default(0)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, taskId])
+}
+
+model TaskSubmission {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  taskId       Int
+  code         String
+  output       String?
+  testsPassed  Boolean  @default(false)
+  passedTests  Int      @default(0)
+  totalTests   Int      @default(0)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+}
+
+model CareerRoleFramework {
+  id             Int                 @id @default(autoincrement())
+  slug           String
+  version        Int                 @default(1)
+  name           String
+  summary        String
+  rationale      String
+  sourceNote     String
+  isActive       Boolean             @default(true)
+  skills         CareerRoleSkill[]
+  profiles       CareerProfile[]
+  assessments    CareerSkillAssessment[]
+  roadmaps       CareerRoadmap[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@unique([slug, version])
+  @@index([slug, isActive])
+}
+
+model CareerRoleSkill {
+  id             Int                 @id @default(autoincrement())
+  roleId         Int
+  skillName      String
+  requiredLevel  Int
+  importance     Int                 @default(3)
+  optional       Boolean             @default(false)
+  prerequisites  Json
+  tools          Json
+  projectIdeas   Json
+  evidence       String
+  rationale      String
+  role           CareerRoleFramework @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, skillName])
+  @@index([roleId, importance])
+}
+
+model CareerProfile {
+  id                  Int                 @id @default(autoincrement())
+  userId              Int                 @unique
+  targetRoleId        Int?
+  background          String              @default("")
+  skills              Json
+  interests           String              @default("")
+  previousProjects    Json
+  careerStage         String              @default("BEGINNER")
+  weeklyHours         Int                 @default(6)
+  targetDate          DateTime?
+  learningPreferences String              @default("")
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetRole          CareerRoleFramework? @relation(fields: [targetRoleId], references: [id], onDelete: SetNull)
+  assessments         CareerSkillAssessment[]
+  roadmaps            CareerRoadmap[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([targetRoleId])
+}
+
+model CareerSkillAssessment {
+  id              Int                 @id @default(autoincrement())
+  profileId       Int
+  roleId          Int
+  frameworkVersion Int
+  result          Json
+  createdAt       DateTime            @default(now())
+  profile         CareerProfile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  role            CareerRoleFramework @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  roadmaps        CareerRoadmap[]
+
+  @@index([profileId, createdAt])
+  @@index([roleId, frameworkVersion])
+}
+
+model CareerRoadmap {
+  id             Int                    @id @default(autoincrement())
+  profileId      Int
+  roleId         Int
+  assessmentId   Int?
+  revision       Int                    @default(1)
+  status         String                 @default("ACTIVE")
+  activeKey      String?                @unique
+  changeReason   String?
+  weeklyHours    Int
+  targetDate     DateTime?
+  revisionToken  Int                    @default(1)
+  profile        CareerProfile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  role           CareerRoleFramework    @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  assessment     CareerSkillAssessment? @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  items          CareerRoadmapItem[]
+  progressEvents CareerProgressEvent[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@index([profileId, status])
+  @@index([roleId, revision])
+}
+
+model CareerRoadmapItem {
+  id                 Int            @id @default(autoincrement())
+  roadmapId          Int
+  taskId             Int?
+  stage              String
+  title              String
+  objective          String
+  skillName          String
+  whyNeeded          String
+  taskDescription    String
+  effortHours        Int
+  prerequisites      Json
+  acceptanceCriteria String
+  evidenceRequired   String
+  status             String         @default("NOT_STARTED")
+  blockedReason      String?
+  targetDate         DateTime?
+  roadmap            CareerRoadmap  @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+  task               Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  evidence           CareerEvidence[]
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@index([roadmapId, status])
+  @@index([taskId])
+}
+
+model CareerEvidence {
+  id            Int                 @id @default(autoincrement())
+  userId        Int
+  roadmapItemId Int?
+  title         String
+  type          String
+  skillName     String
+  url           String?
+  description   String              @default("")
+  status        String              @default("SUBMITTED")
+  submittedAt   DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roadmapItem   CareerRoadmapItem?  @relation(fields: [roadmapItemId], references: [id], onDelete: SetNull)
+  reviews       CareerEvidenceReview[]
+
+  @@index([userId, status])
+  @@index([roadmapItemId])
+}
+
+model CareerEvidenceReview {
+  id          Int            @id @default(autoincrement())
+  evidenceId  Int
+  reviewerId  Int
+  status      String
+  feedback    String
+  createdAt   DateTime       @default(now())
+  evidence    CareerEvidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+  reviewer    User           @relation("EvidenceReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([evidenceId, createdAt])
+}
+
+model CareerProgressEvent {
+  id        Int             @id @default(autoincrement())
+  userId    Int
+  roadmapId Int?
+  itemId    Int?
+  eventType String
+  details   Json
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  roadmap   CareerRoadmap?  @relation(fields: [roadmapId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+
+  @@index([userId, createdAt])
+  @@index([roadmapId, createdAt])
+}
+
+model TokenTransaction {
+  id             Int      @id @default(autoincrement())
+  txHash         String   @unique
+  userId         Int
+  jobId          Int?
+  proposalId     Int?
+  type           String
+  tokenAmount    Int
+  tokenPriceInr  Int
+  totalInr       Int
+  status         String   @default("CONFIRMED")
+  network        String   @default("2Gathers Testnet")
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  job            Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  proposal       Proposal? @relation(fields: [proposalId], references: [id], onDelete: SetNull)
+}

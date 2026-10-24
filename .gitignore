@@ -1,0 +1,33 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+tsconfig.tsbuildinfo
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+build.log
+
+# env files
+.env
+.env.*
+!.env.example
+!.env.local.example
+
+# local workspace exports
+codetoclone/
+prisma/dev.db
+
+# test output
+test-results/
+playwright-report/
+coverage/
+
+# misc
+.DS_Store
+*.pem
